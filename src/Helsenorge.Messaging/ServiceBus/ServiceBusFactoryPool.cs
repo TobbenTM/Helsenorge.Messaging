@@ -1,16 +1,15 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Helsenorge.Messaging.Abstractions;
-using Microsoft.Extensions.Logging;
-using Microsoft.ServiceBus;
-using Microsoft.ServiceBus.Messaging;
 using System.IO;
+using Helsenorge.Messaging.Abstractions;
+using Microsoft.Azure.ServiceBus;
+using Microsoft.Extensions.Logging;
 
 namespace Helsenorge.Messaging.ServiceBus
 {
     internal class ServiceBusFactoryPool : MessagingEntityCache<IMessagingFactory>, IServiceBusFactoryPool
     {
         private readonly ServiceBusSettings _settings;
-        private readonly object _lock= new object();
+        private readonly object _lock = new object();
         private int _index;
         private IMessagingFactory _alternateMessagingFactor;
 
@@ -30,14 +29,12 @@ namespace Helsenorge.Messaging.ServiceBus
         {
             if (_alternateMessagingFactor != null) return _alternateMessagingFactor;
 
-            var factory = MessagingFactory.CreateFromConnectionString(_settings.ConnectionString);
-            factory.RetryPolicy = RetryPolicy.Default;
-            return new ServiceBusFactory(factory);
+            return new ServiceBusFactory(_settings.ConnectionString);
         }
-        public IMessagingMessage CreateMessage(ILogger logger, Stream stream, OutgoingMessage outgoingMessage)
+        public IMessagingMessage CreateMessage(ILogger logger, Stream stream)
         {
             var factory = FindNextFactory(logger);
-            return factory.CreteMessage(stream, outgoingMessage);
+            return factory.CreateMessage(stream);
         }
         public IMessagingFactory FindNextFactory(ILogger logger)
         {

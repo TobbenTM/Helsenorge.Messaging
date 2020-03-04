@@ -2,14 +2,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Helsenorge.Messaging.Abstractions;
-using Microsoft.ServiceBus.Messaging;
+using Microsoft.Azure.ServiceBus;
+using Microsoft.Azure.ServiceBus.Core;
 
 namespace Helsenorge.Messaging.ServiceBus
 {
     [ExcludeFromCodeCoverage] // Azure service bus implementation
     internal class ServiceBusSender : IMessagingSender
     {
-        readonly MessageSender _implementation;
+        private readonly MessageSender _implementation;
         public ServiceBusSender(MessageSender implementation)
         {
             if (implementation == null) throw new ArgumentNullException(nameof(implementation));
@@ -18,13 +19,13 @@ namespace Helsenorge.Messaging.ServiceBus
         public async Task SendAsync(IMessagingMessage message)
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
-            
-            var brokeredMessage = message.OriginalObject as BrokeredMessage;
-            if(brokeredMessage == null) throw new InvalidOperationException("OriginalObject is not a Brokered message");
+
+            var brokeredMessage = message.OriginalObject as Message;
+            if (brokeredMessage == null) throw new InvalidOperationException("OriginalObject is not a Brokered message");
 
             await _implementation.SendAsync(brokeredMessage).ConfigureAwait(false);
         }
-        bool ICachedMessagingEntity.IsClosed => _implementation.IsClosed;
-        void ICachedMessagingEntity.Close() => _implementation.Close();
+        bool ICachedMessagingEntity.IsClosed => _implementation.IsClosedOrClosing;
+        void ICachedMessagingEntity.Close() => _implementation.CloseAsync().GetAwaiter().GetResult();
     }
 }

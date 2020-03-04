@@ -2,30 +2,46 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Helsenorge.Messaging.Abstractions;
-using Microsoft.ServiceBus.Messaging;
+using Microsoft.Azure.ServiceBus;
+using Microsoft.Azure.ServiceBus.Core;
 
 namespace Helsenorge.Messaging.ServiceBus
 {
     [ExcludeFromCodeCoverage] // Azure service bus implementation
     internal class ServiceBusFactory : IMessagingFactory
     {
-        private readonly MessagingFactory _implementation;
+        private readonly ServiceBusConnectionStringBuilder _connectionStringBuilder;
 
-        public ServiceBusFactory(MessagingFactory implementation)
+        public ServiceBusFactory(string connectionString)
         {
-            if (implementation == null) throw new ArgumentNullException(nameof(implementation));
-            _implementation = implementation;
+            if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
+            _connectionStringBuilder = new ServiceBusConnectionStringBuilder(connectionString);
         }
+
         public IMessagingReceiver CreateMessageReceiver(string id)
         {
-            return new ServiceBusReceiver(_implementation.CreateMessageReceiver(id, ReceiveMode.PeekLock));
+            return new ServiceBusReceiver(new MessageReceiver(_connectionStringBuilder, ReceiveMode.PeekLock));
         }
+
         public IMessagingSender CreateMessageSender(string id)
         {
-            return new ServiceBusSender(_implementation.CreateMessageSender(id));
+            return new ServiceBusSender(new MessageSender(_connectionStringBuilder));
         }
-        bool ICachedMessagingEntity.IsClosed => _implementation.IsClosed;
-        void ICachedMessagingEntity.Close() => _implementation.Close();
-        public IMessagingMessage CreteMessage(Stream stream, OutgoingMessage outgoingMessage) => new ServiceBusMessage(new BrokeredMessage(stream, true));
+
+        bool ICachedMessagingEntity.IsClosed => true;
+
+        void ICachedMessagingEntity.Close()
+        {
+            // noop
+        }
+
+        public IMessagingMessage CreateMessage(Stream stream)
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                stream.CopyTo(memoryStream);
+                return new ServiceBusMessage(new Message(memoryStream.ToArray()));
+            }
+        }
     }
 }

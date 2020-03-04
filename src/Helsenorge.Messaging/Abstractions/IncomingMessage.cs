@@ -1,5 +1,6 @@
 ﻿using Helsenorge.Registries.Abstractions;
 using System;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 
 namespace Helsenorge.Messaging.Abstractions
@@ -57,10 +58,6 @@ namespace Helsenorge.Messaging.Abstractions
         /// Indication of whether the content was signed or not.
         /// </summary>
         public bool ContentWasSigned { get; set; }
-        /// <summary>
-        /// Renews the peerlock of the message
-        /// </summary>
-        public Action RenewLock { get; internal set; }
         /// <summary>
         /// Gets the number of deliveries.
         /// </summary>

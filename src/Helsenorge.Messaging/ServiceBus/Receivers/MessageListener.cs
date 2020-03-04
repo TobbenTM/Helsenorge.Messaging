@@ -141,7 +141,6 @@ namespace Helsenorge.Messaging.ServiceBus.Receivers
                     MessageId = message.MessageId,
                     CorrelationId = message.CorrelationId,
                     EnqueuedTimeUtc = message.EnqueuedTimeUtc,
-                    RenewLock = message.RenewLock,
                     DeliveryCount = message.DeliveryCount
                 };
                 NotifyMessageProcessingStarted(incomingMessage);
@@ -165,7 +164,7 @@ namespace Helsenorge.Messaging.ServiceBus.Receivers
                     incomingMessage.Payload = payload;
                 }
                 NotifyMessageProcessingReady(message, incomingMessage);
-                ServiceBusCore.RemoveProcessedMessageFromQueue(message);
+                await ServiceBusCore.RemoveProcessedMessageFromQueue(message);
                 Logger.LogRemoveMessageFromQueueNormal(message, QueueName);
                 NotifyMessageProcessingCompleted(incomingMessage);
                 Logger.LogEndReceive(QueueType, incomingMessage);

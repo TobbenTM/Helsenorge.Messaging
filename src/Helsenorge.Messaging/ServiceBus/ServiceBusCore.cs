@@ -4,11 +4,9 @@ using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Helsenorge.Messaging.Abstractions;
 using Helsenorge.Registries.Abstractions;
 using Microsoft.Extensions.Logging;
-using Helsenorge.Messaging.Http;
 
 namespace Helsenorge.Messaging.ServiceBus
 {
@@ -43,7 +41,7 @@ namespace Helsenorge.Messaging.ServiceBus
         private const string ErrorConditionHeaderKey = "errorCondition";
         private const string ErrorDescriptionHeaderKey = "errorDescription";
         private const string ErrorConditionDataHeaderKey = "errorConditionData";
-        
+
 
         //convencience properties
         internal ServiceBusSettings Settings => Core.Settings.ServiceBus;
@@ -70,7 +68,7 @@ namespace Helsenorge.Messaging.ServiceBus
         internal ServiceBusCore(MessagingCore core)
         {
             Core = core ?? throw new ArgumentNullException(nameof(core));
-            
+
             var connectionString = core.Settings.ServiceBus.ConnectionString;
             if (connectionString == null)
             {
@@ -78,13 +76,13 @@ namespace Helsenorge.Messaging.ServiceBus
             }
             if (connectionString.StartsWith("http://") || connectionString.StartsWith("https://"))
             {
-                FactoryPool = new HttpServiceBusFactoryPool(core.Settings.ServiceBus);
+                throw new NotSupportedException("Http based transport is no longer supported, please use AMQP.");
             }
             else
             {
                 FactoryPool = new ServiceBusFactoryPool(core.Settings.ServiceBus);
             }
-            
+
             SenderPool = new ServiceBusSenderPool(core.Settings.ServiceBus, FactoryPool);
             ReceiverPool = new ServiceBusReceiverPool(core.Settings.ServiceBus, FactoryPool);
         }
@@ -114,7 +112,7 @@ namespace Helsenorge.Messaging.ServiceBus
                 hasAgreement = false; // if we don't have an agreement, we try to find the specific profile
                 profile = await CollaborationProtocolRegistry.FindProtocolForCounterpartyAsync(logger, outgoingMessage.ToHerId).ConfigureAwait(false);
             }
-            
+
             var contentType = Core.MessageProtection.ContentType;
             if (contentType.Equals(ContentType.SignedAndEnveloped, StringComparison.OrdinalIgnoreCase))
             {
@@ -171,20 +169,20 @@ namespace Helsenorge.Messaging.ServiceBus
 
             logger.LogBeforeFactoryPoolCreateMessage(outgoingMessage.MessageFunction, Core.Settings.MyHerId, outgoingMessage.ToHerId, outgoingMessage.MessageId);
             // Create an empty message
-            var messagingMessage = FactoryPool.CreateMessage(logger, stream, outgoingMessage);
+            var messagingMessage = FactoryPool.CreateMessage(logger, stream);
             logger.LogAfterFactoryPoolCreateMessage(outgoingMessage.MessageFunction, Core.Settings.MyHerId, outgoingMessage.ToHerId, outgoingMessage.MessageId);
 
             if (queueType != QueueType.SynchronousReply)
             {
-                messagingMessage.ReplyTo = 
+                messagingMessage.ReplyTo =
                     replyTo ?? await ConstructQueueName(logger, Core.Settings.MyHerId, queueType).ConfigureAwait(false);
             }
             messagingMessage.ContentType = Core.MessageProtection.ContentType;
             messagingMessage.MessageId = outgoingMessage.MessageId;
             // when we are replying to a synchronous message, we need to use the replyto of the original message
-            messagingMessage.To = 
-                (queueType == QueueType.SynchronousReply) ? 
-                replyTo : 
+            messagingMessage.To =
+                (queueType == QueueType.SynchronousReply) ?
+                replyTo :
                 await ConstructQueueName(logger, outgoingMessage.ToHerId, queueType).ConfigureAwait(false);
             messagingMessage.MessageFunction = outgoingMessage.MessageFunction;
             messagingMessage.CorrelationId = correlationId ?? outgoingMessage.MessageId;
@@ -250,7 +248,7 @@ namespace Helsenorge.Messaging.ServiceBus
         /// <param name="additionalData">Additional information to include</param>
         /// <returns></returns>
         private async Task SendError(ILogger logger, IMessagingMessage originalMessage, string errorCode, string errorDescription, IEnumerable<string> additionalData) //TODO: Sjekk at SendError fungerer med Http-meldinger
-        {            
+        {
             if (originalMessage == null) throw new ArgumentNullException(nameof(originalMessage));
             if (string.IsNullOrEmpty(errorCode)) throw new ArgumentNullException(nameof(errorCode));
             if (string.IsNullOrEmpty(errorDescription)) throw new ArgumentNullException(nameof(errorDescription));
@@ -260,7 +258,7 @@ namespace Helsenorge.Messaging.ServiceBus
                 logger.LogWarning(EventIds.MissingField, "FromHerId is missing. No idea where to send the error");
                 return;
             }
-            
+
             // Clones original message, but leaves out the payload
             var clonedMessage = originalMessage.Clone(false);
             // update some properties on the cloned message
@@ -268,7 +266,7 @@ namespace Helsenorge.Messaging.ServiceBus
             clonedMessage.TimeToLive = Settings.Error.TimeToLive;
             clonedMessage.FromHerId = originalMessage.ToHerId;
             clonedMessage.ToHerId = originalMessage.FromHerId;
-            
+
             if (clonedMessage.Properties.ContainsKey(OriginalMessageIdHeaderKey) == false)
             {
                 clonedMessage.Properties.Add(OriginalMessageIdHeaderKey, originalMessage.MessageId);
@@ -335,7 +333,7 @@ namespace Helsenorge.Messaging.ServiceBus
                     EventId = EventIds.SenderMissingInAddressRegistryEventId
                 };
             }
-            
+
             switch (type)
             {
                 case QueueType.Asynchronous:
@@ -380,24 +378,26 @@ namespace Helsenorge.Messaging.ServiceBus
         /// </summary>
         /// <param name="logger"></param>
         /// <param name="message"></param>
-        internal static void RemoveMessageFromQueueAfterError(ILogger logger, IMessagingMessage message)
+        internal static Task RemoveMessageFromQueueAfterError(ILogger logger, IMessagingMessage message)
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
 
             logger.LogRemoveMessageFromQueueError(message.MessageId);
-            message.Complete();
+
+            return message.CompleteAsync();
         }
 
         /// <summary>
         /// Removes the message from the queue as part of normal operation
         /// </summary>
         /// <param name="message"></param>
-        internal static void RemoveProcessedMessageFromQueue(IMessagingMessage message)
+        internal static Task RemoveProcessedMessageFromQueue(IMessagingMessage message)
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
 
-            message.Complete();
+            return message.CompleteAsync();
         }
+
         /// <summary>
         /// Registers an alternate messaging factory
         /// </summary>

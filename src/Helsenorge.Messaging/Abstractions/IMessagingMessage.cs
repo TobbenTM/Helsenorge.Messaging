@@ -76,14 +76,6 @@ namespace Helsenorge.Messaging.Abstractions
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1716:IdentifiersShouldNotMatchKeywords", MessageId = "To")]
         string To { get; set; }
         /// <summary>
-        /// Completes processing of this message
-        /// </summary>
-        void Complete();
-        /// <summary>
-        /// Completes processing of this message
-        /// </summary>
-        Task CompleteAsync();
-        /// <summary>
         /// Creates a clone of the message
         /// </summary>
         /// <returns></returns>
@@ -103,13 +95,17 @@ namespace Helsenorge.Messaging.Abstractions
         /// <param name="ex"></param>
         void AddDetailsToException(Exception ex);
         /// <summary>
+        /// Completes processing of this message
+        /// </summary>
+        Task CompleteAsync();
+        /// <summary>
         /// Renews the peerlock of the message
         /// </summary>
-        void RenewLock();
+        Task RenewLockAsync();
         /// <summary>
         /// Sends this message to the deadletter queue
         /// </summary>
-        void DeadLetter();
+        Task DeadLetterAsync();
         /// <summary>
         /// Gets the number of deliveries.
         /// </summary>

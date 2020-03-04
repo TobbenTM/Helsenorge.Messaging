@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-using System.ServiceModel;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Helsenorge.Registries.Abstractions;
@@ -12,6 +11,7 @@ using Helsenorge.Registries.Utilities;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Helsenorge.Registries.AddressService;
+using System.ServiceModel;
 
 namespace Helsenorge.Registries
 {
@@ -58,8 +58,7 @@ namespace Helsenorge.Registries
             _settings = settings;
             _cache = cache;
             _adressRegistry = adressRegistry;
-            _invoker = new SoapServiceInvoker(settings.WcfConfiguration);
-            _invoker.SetClientCredentials(_settings.UserName, _settings.Password);
+            _invoker = new SoapServiceInvoker(settings.SoapConfiguration);
             CertificateValidator = new CertificateValidator(_settings.UseOnlineRevocationCheck);
         }
 
@@ -296,11 +295,11 @@ namespace Helsenorge.Registries
 
         [ExcludeFromCodeCoverage] // requires wire communication
         private Task<T> Invoke<T>(ILogger logger, Func<CPAService.ICPPAService, Task<T>> action, string methodName)
-            => _invoker.Execute(logger, action, methodName, _settings.EndpointName);
+            => _invoker.Execute(logger, action, methodName, _settings.SoapConfiguration?.EndpointAddress);
 
         [ExcludeFromCodeCoverage] // requires wire communication
         private Task<T> Invoke<T>(ILogger logger, Func<ICommunicationPartyService, Task<T>> action, string methodName)
-            => _invoker.Execute(logger, action, methodName, _settings.EndpointName);
+            => _invoker.Execute(logger, action, methodName, _settings.SoapConfiguration?.EndpointAddress);
 
         private CollaborationProtocolProfile MapFrompartyInfo(XElement partyInfo)
         {

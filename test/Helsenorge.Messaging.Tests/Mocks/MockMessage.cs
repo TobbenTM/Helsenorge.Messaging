@@ -43,20 +43,21 @@ namespace Helsenorge.Messaging.Tests.Mocks
         public DateTime ScheduledEnqueueTimeUtc { get; set; }
         public TimeSpan TimeToLive { get; set; }
         public string To { get; set; }
-        public void Complete()
-        {
-            Queue.Remove(this);
-        }
 
         public Task CompleteAsync()
         {
             Queue.Remove(this);
             return Task.CompletedTask;
         }
-        public void DeadLetter()
+        public Task DeadLetterAsync()
         {
             Queue.Remove(this);
             DeadLetterQueue.Add(this);
+            return Task.CompletedTask;
+        }
+        public Task RenewLockAsync()
+        {
+            throw new NotImplementedException();
         }
 
         public List<IMessagingMessage> Queue { get; set; }
@@ -100,13 +101,9 @@ namespace Helsenorge.Messaging.Tests.Mocks
             _stream = stream;  
         }
 
-        public void RenewLock()
-        {
-            throw new NotImplementedException();
-        }
-
         public void Dispose()
         {
+            // noop
         }
 
         public void AddDetailsToException(Exception ex)

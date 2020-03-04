@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Helsenorge.Messaging.Abstractions;
+using Microsoft.Azure.ServiceBus;
 
 namespace Helsenorge.Messaging.Tests.Mocks
 {
@@ -17,7 +18,23 @@ namespace Helsenorge.Messaging.Tests.Mocks
         }
 
         public bool IsClosed => false;
+
         public void Close() {}
+
+        public Task CompleteMessageAsync(Message messsage)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task AbandonMessageAsync(Message messsage)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task DeadletterMessageAsync(Message messsage)
+        {
+            throw new NotImplementedException();
+        }
 
         public async Task<IMessagingMessage> ReceiveAsync(TimeSpan serverWaitTime)
         {
@@ -31,6 +48,11 @@ namespace Helsenorge.Messaging.Tests.Mocks
             }
             //System.Threading.Thread.Sleep(serverWaitTime);
             return null;
+        }
+
+        public Task RenewMessageLockAsync(Message messsage)
+        {
+            throw new NotImplementedException();
         }
     }
 }

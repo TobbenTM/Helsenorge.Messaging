@@ -6,20 +6,23 @@ using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Helsenorge.Messaging.Abstractions;
-using Microsoft.ServiceBus.Messaging;
+using Microsoft.Azure.ServiceBus;
 
 namespace Helsenorge.Messaging.ServiceBus
 {
     [ExcludeFromCodeCoverage] // Azure service bus implementation
     internal class ServiceBusMessage : IMessagingMessage
     {
-        private readonly BrokeredMessage _implementation;
+        private readonly Message _implementation;
+        private readonly IMessagingReceiver _receiver;
 
-        public ServiceBusMessage(BrokeredMessage implementation)
+        public ServiceBusMessage(Message implementation, IMessagingReceiver receiver = null)
         {
             if (implementation == null) throw new ArgumentNullException(nameof(implementation));
             _implementation = implementation;
+            _receiver = receiver;
         }
+
         public int FromHerId
         {
             [DebuggerStepThrough] get { return GetValue(ServiceBusCore.FromHerIdHeaderKey, 0); }
@@ -41,14 +44,14 @@ namespace Helsenorge.Messaging.ServiceBus
             [DebuggerStepThrough] set { SetValue(ServiceBusCore.CpaIdHeaderKey, value); }
         }
         public object OriginalObject => _implementation;
-        public DateTime EnqueuedTimeUtc => _implementation.EnqueuedTimeUtc;
+        public DateTime EnqueuedTimeUtc => _implementation.SystemProperties.EnqueuedTimeUtc;
         public DateTime ExpiresAtUtc => _implementation.ExpiresAtUtc;
-        public IDictionary<string, object> Properties => _implementation.Properties;
+        public IDictionary<string, object> Properties => _implementation.UserProperties;
         public long Size => _implementation.Size;
-        public string ContentType 
+        public string ContentType
         {
             [DebuggerStepThrough] get { return _implementation.ContentType; }
-            [DebuggerStepThrough] set { _implementation.ContentType = value; } 
+            [DebuggerStepThrough] set { _implementation.ContentType = value; }
         }
         public string CorrelationId
         {
@@ -78,7 +81,7 @@ namespace Helsenorge.Messaging.ServiceBus
         public TimeSpan TimeToLive
         {
             [DebuggerStepThrough] get { return _implementation.TimeToLive; }
-            [DebuggerStepThrough] set { if(value > TimeSpan.Zero) _implementation.TimeToLive = value; }
+            [DebuggerStepThrough] set { if (value > TimeSpan.Zero) _implementation.TimeToLive = value; }
         }
         public string To
         {
@@ -88,22 +91,21 @@ namespace Helsenorge.Messaging.ServiceBus
 
         public int DeliveryCount
         {
-            [DebuggerStepThrough] get { return _implementation.DeliveryCount; }
+            [DebuggerStepThrough] get { return _implementation.SystemProperties.DeliveryCount; }
         }
 
         [DebuggerStepThrough]
         public IMessagingMessage Clone(bool includePayload = true)
         {
-            if (includePayload){
-                return new ServiceBusMessage(_implementation.Clone());
+            if (includePayload) {
+                return new ServiceBusMessage(_implementation.Clone(), _receiver);
             }
             else
             {
-                var message = new ServiceBusMessage(new BrokeredMessage()
+                var message = new ServiceBusMessage(new Message()
                 {
                     ContentType = _implementation.ContentType,
                     CorrelationId = _implementation.CorrelationId,
-                    ForcePersistence = _implementation.ForcePersistence,
                     Label = _implementation.Label,
                     MessageId = _implementation.MessageId,
                     PartitionKey = _implementation.PartitionKey,
@@ -114,9 +116,9 @@ namespace Helsenorge.Messaging.ServiceBus
                     TimeToLive = _implementation.TimeToLive,
                     To = _implementation.To,
                     ViaPartitionKey = _implementation.ViaPartitionKey
-                });
+                }, _receiver);
 
-                foreach(var p in _implementation.Properties)
+                foreach (var p in _implementation.UserProperties)
                 {
                     message.Properties.Add(p);
                 }
@@ -126,19 +128,14 @@ namespace Helsenorge.Messaging.ServiceBus
         }
 
         [DebuggerStepThrough]
-        public void Complete() => _implementation.Complete();
+        public void Dispose()
+        {
+            // noop
+        }
         [DebuggerStepThrough]
-        public void DeadLetter() => _implementation.DeadLetter();
-        [DebuggerStepThrough]
-        public Task CompleteAsync() => _implementation.CompleteAsync();
-        [DebuggerStepThrough]
-        public void Dispose() => _implementation.Dispose();
-        [DebuggerStepThrough]
-        public Stream GetBody() => _implementation.GetBody<Stream>();
+        public Stream GetBody() => new MemoryStream(_implementation.Body);
         [DebuggerStepThrough]
         public override string ToString() => _implementation.ToString();
-        [DebuggerStepThrough]
-        public void RenewLock() => _implementation.RenewLock();
 
         public void AddDetailsToException(Exception ex)
         {
@@ -165,12 +162,39 @@ namespace Helsenorge.Messaging.ServiceBus
             }
         }
 
-        private void SetValue(string key, string value) => _implementation.Properties[key] = value;
-        private void SetValue(string key, DateTime value) => _implementation.Properties[key] = value.ToString(StringFormatConstants.IsoDateTime, DateTimeFormatInfo.InvariantInfo);
-        private void SetValue(string key, int value) => _implementation.Properties[key] = value.ToString(CultureInfo.InvariantCulture);
+        public Task CompleteAsync()
+        {
+            if (_receiver.IsClosed)
+            {
+                throw new ObjectDisposedException("The correlated MessageReceiver for this message has been disposed.");
+            }
+            return _receiver.CompleteMessageAsync(_implementation);
+        }
 
-        private string GetValue(string key, string value) => _implementation.Properties.ContainsKey(key) ? _implementation.Properties[key].ToString() : value;
-        private int GetValue(string key, int value) => _implementation.Properties.ContainsKey(key) ? int.Parse(_implementation.Properties[key].ToString()) : value;
-        private DateTime GetValue(string key, DateTime value) => _implementation.Properties.ContainsKey(key) ? DateTime.Parse(_implementation.Properties[key].ToString(), CultureInfo.InvariantCulture) : value;
+        public Task RenewLockAsync()
+        {
+            if (_receiver.IsClosed)
+            {
+                throw new ObjectDisposedException("The correlated MessageReceiver for this message has been disposed.");
+            }
+            return _receiver.RenewMessageLockAsync(_implementation);
+        }
+
+        public Task DeadLetterAsync()
+        {
+            if (_receiver.IsClosed)
+            {
+                throw new ObjectDisposedException("The correlated MessageReceiver for this message has been disposed.");
+            }
+            return _receiver.DeadletterMessageAsync(_implementation);
+        }
+
+        private void SetValue(string key, string value) => _implementation.UserProperties[key] = value;
+        private void SetValue(string key, DateTime value) => _implementation.UserProperties[key] = value.ToString(StringFormatConstants.IsoDateTime, DateTimeFormatInfo.InvariantInfo);
+        private void SetValue(string key, int value) => _implementation.UserProperties[key] = value.ToString(CultureInfo.InvariantCulture);
+
+        private string GetValue(string key, string value) => _implementation.UserProperties.ContainsKey(key) ? _implementation.UserProperties[key].ToString() : value;
+        private int GetValue(string key, int value) => _implementation.UserProperties.ContainsKey(key) ? int.Parse(_implementation.UserProperties[key].ToString()) : value;
+        private DateTime GetValue(string key, DateTime value) => _implementation.UserProperties.ContainsKey(key) ? DateTime.Parse(_implementation.UserProperties[key].ToString(), CultureInfo.InvariantCulture) : value;
     }
 }

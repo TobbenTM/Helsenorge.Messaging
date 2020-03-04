@@ -1,5 +1,4 @@
 using System;
-using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.ServiceModel;
@@ -24,10 +23,12 @@ namespace Helsenorge.Registries.Tests
         {
             var settings = new CollaborationProtocolRegistrySettings()
             {
-                UserName = "username",
-                Password = "password",
-                EndpointName = "BasicHttpBinding_ICommunicationPartyService",
-                WcfConfiguration = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None),
+                SoapConfiguration = new SoapConfiguration
+                {
+                    EndpointAddress = "http://example.org/some-endpoint",
+                    UserName = "username",
+                    Password = "password",
+                },
                 CachingInterval = TimeSpan.FromSeconds(5),
                 MyHerId = 93238 // matches a value in a CPA test file
             };
@@ -35,7 +36,7 @@ namespace Helsenorge.Registries.Tests
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddLogging(loggingBuilder => loggingBuilder.AddDebug());
             var provider = serviceCollection.BuildServiceProvider();
-            _loggerFactory = provider.GetRequiredService<ILoggerFactory>();            
+            _loggerFactory = provider.GetRequiredService<ILoggerFactory>();
             _logger = _loggerFactory.CreateLogger<CollaborationRegistryTests>();
 
             var distributedCache = DistributedCacheFactory.Create();
@@ -76,7 +77,7 @@ namespace Helsenorge.Registries.Tests
         [ExpectedException(typeof(ArgumentNullException))]
         public void Constructor_Cache_Null()
         {
-            
+
             var distributedCache = DistributedCacheFactory.Create();
             IAddressRegistry addressRegistry = new AddressRegistryMock(new AddressRegistrySettings(), distributedCache);
 
@@ -300,7 +301,7 @@ namespace Helsenorge.Registries.Tests
             Assert.IsNull(profile.FindMessagePartsForReceiveAppRec("BOB"));
         }
 
-        
+
         [TestMethod]
         [ExpectedException(typeof(ArgumentNullException))]
         public void FindMessagePartsForSendMessage_ArgumentNull()

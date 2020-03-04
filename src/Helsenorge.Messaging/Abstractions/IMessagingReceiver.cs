@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.Azure.ServiceBus;
 
 namespace Helsenorge.Messaging.Abstractions
 {
@@ -14,5 +15,7 @@ namespace Helsenorge.Messaging.Abstractions
         /// <param name="serverWaitTime">Timeout applied to receive operation</param>
         /// <returns></returns>
         Task<IMessagingMessage> ReceiveAsync(TimeSpan serverWaitTime);
+
+        Task CompleteMessageAsync(Message messsage);
     }
 }
