@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.IO;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -10,22 +9,20 @@ using Helsenorge.Registries;
 using Microsoft.Extensions.CommandLineUtils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-#if NET471
 using Microsoft.Extensions.DependencyInjection;
-#endif
 
 namespace Helsenorge.Messaging.Client
 {
-    class Program
+    internal static class Program
     {
         private static readonly object SyncRoot = new object();
         private static Stack<string> _files;
-    
+
         private static ILogger _logger;
         private static MessagingClient _messagingClient;
         private static ClientSettings _clientSettings;
 
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             var app = new CommandLineApplication();
             app.HelpOption("-?|-h|--help");
@@ -71,12 +68,12 @@ namespace Helsenorge.Messaging.Client
             var collaborationProtocolRegistrySettings = new CollaborationProtocolRegistrySettings();
             configurationRoot.GetSection("CollaborationProtocolRegistrySettings").Bind(collaborationProtocolRegistrySettings);
 
-            var collaborationProtocolRegistry = new CollaborationProtocolRegistry(collaborationProtocolRegistrySettings, 
+            var collaborationProtocolRegistry = new CollaborationProtocolRegistry(collaborationProtocolRegistrySettings,
                 distributedCache, addressRegistry);
 
             _clientSettings = new ClientSettings();
             configurationRoot.GetSection("ClientSettings").Bind(_clientSettings);
-            
+
             // set up messaging
             var messagingSettings = new MessagingSettings();
             configurationRoot.GetSection("MessagingSettings").Bind(messagingSettings);
@@ -84,7 +81,7 @@ namespace Helsenorge.Messaging.Client
             messagingSettings.IgnoreCertificateErrorOnSend = ignoreCertificateErrors;
             messagingSettings.LogPayload = true;
 
-            if(noProtection)
+            if (noProtection)
                 _messagingClient = new MessagingClient(messagingSettings, collaborationProtocolRegistry, addressRegistry, null, null, new NoMessageProtection());
             else
                 _messagingClient = new MessagingClient(messagingSettings, collaborationProtocolRegistry, addressRegistry);
@@ -113,7 +110,7 @@ namespace Helsenorge.Messaging.Client
                     return 2;
                 }
                 _files = new Stack<string>(Directory.GetFiles(_clientSettings.SourceDirectory));
-                
+
                 var tasks = new List<Task>();
                 for (var i = 0; i < _clientSettings.Threads; i++)
                 {
@@ -194,13 +191,9 @@ namespace Helsenorge.Messaging.Client
         }
 
         private static void CreateLogger(IConfigurationRoot configurationRoot)
-        {            
+        {
             ILoggerFactory loggerFactory;
-#if NET46
-            loggerFactory = new LoggerFactory();
-            loggerFactory.AddConsole(configurationRoot.GetSection("Logging"));
-#elif NET471            
-            
+
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddLogging(loggerConfiguration =>
             {
@@ -208,7 +201,7 @@ namespace Helsenorge.Messaging.Client
             });
             var provider = serviceCollection.BuildServiceProvider();
             loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-#endif
+
             _logger = loggerFactory.CreateLogger("TestClient");
         }
     }

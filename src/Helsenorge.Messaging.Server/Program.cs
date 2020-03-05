@@ -1,5 +1,4 @@
-using System;
-using System.Configuration;
+﻿using System;
 using System.IO;
 using System.Xml.Linq;
 using Helsenorge.Messaging.Abstractions;
@@ -11,25 +10,22 @@ using Microsoft.Extensions.Logging;
 using NLog;
 using NLog.Config;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
-#if NET471
-using NLog.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-#endif
 
 namespace Helsenorge.Messaging.Server
 {
-    class Program
+    internal static class Program
     {
         private static ILogger _logger;
         private static ILoggerFactory _loggerFactory;
         private static IMessagingServer _messagingServer;
         private static ServerSettings _serverSettings;
 
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             var app = new CommandLineApplication();
             app.HelpOption("-?|-h|--help");
-            
+
             var profileArgument = app.Argument("[profile]", "The name of the json profile file to use (excluded file extension)");
             app.OnExecute(() =>
             {
@@ -154,26 +150,20 @@ namespace Helsenorge.Messaging.Server
         }
 
         private static void CreateLogger(IConfigurationRoot configurationRoot)
-        {            
+        {
             LogManager.Configuration = new XmlLoggingConfiguration("nlog.config", true);
 
-#if NET46
-            _loggerFactory = new LoggerFactory();
-            _loggerFactory.AddConsole(configurationRoot.GetSection("Logging"));
-            _loggerFactory.AddNLog();           
-#elif NET471
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddLogging(loggingBuilder =>
             {
                 loggingBuilder.AddConsole();
                 loggingBuilder.AddNLog();
-            });            
-            var provider = serviceCollection.BuildServiceProvider();            
+            });
+            var provider = serviceCollection.BuildServiceProvider();
             _loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-#endif
 
             _logger = _loggerFactory.CreateLogger("TestServer");
-        }        
+        }
     }
 
     internal class ServerSettings
