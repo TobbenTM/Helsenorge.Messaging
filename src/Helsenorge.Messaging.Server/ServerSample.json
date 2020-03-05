@@ -1,11 +1,15 @@
 {
     "AddressRegistrySettings": {
-        "UserName": "???",
-        "Password": "???"
+        "SoapConfiguration": {
+            "UserName": "username",
+            "Password": "password"
+        }
     },
     "CollaborationProtocolRegistrySettings": {
-        "UserName": "???",
-        "Password": "???",
+        "SoapConfiguration": {
+            "UserName": "username",
+            "Password": "password"
+        },
         "MyHerId": "6789"
     },
     "MessagingSettings": {
@@ -26,6 +30,5 @@
     },
     "ServerSettings": {
         "DestinationDirectory": "Results"
-    } 
+    }
 }
-

@@ -17,5 +17,11 @@ namespace Helsenorge.Messaging.Abstractions
         Task<IMessagingMessage> ReceiveAsync(TimeSpan serverWaitTime);
 
         Task CompleteMessageAsync(Message messsage);
+
+        Task RenewMessageLockAsync(Message messsage);
+
+        Task AbandonMessageAsync(Message messsage);
+
+        Task DeadletterMessageAsync(Message messsage);
     }
 }
